@@ -6,15 +6,18 @@ import {
   Pressable,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Download, Link } from 'lucide-react-native';
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
 import { useRooms } from '../../src/hooks/useRooms';
 import { useBookings } from '../../src/hooks/useBookings';
 import GuestDetailModal from '../../src/components/GuestDetailModal';
+import { exportCalendarToFile, generateICalUrl } from '../../src/lib/ical';
+import * as Clipboard from 'expo-clipboard';
 import type { RoomStatus, Currency } from '../../src/types/database';
 
 interface CalendarBooking {
@@ -202,6 +205,26 @@ export default function CalendarScreen() {
   const cellWidth = Math.max(36, (width - 74 - 48) / Math.min(daysInMonth.length, 14));
   const isLoading = roomsLoading || bookingsLoading;
 
+  const handleExportCalendar = async () => {
+    if (!currentGuesthouse) return;
+    const roomsMap: Record<string, string> = {};
+    rooms.forEach((r) => {
+      roomsMap[r.id] = r.number;
+    });
+    try {
+      await exportCalendarToFile(supabaseBookings, roomsMap, currentGuesthouse.name);
+    } catch (error) {
+      Alert.alert('Export Failed', 'Could not export calendar');
+    }
+  };
+
+  const handleCopyICalUrl = async () => {
+    if (!currentGuesthouse) return;
+    const url = generateICalUrl(currentGuesthouse.id);
+    await Clipboard.setStringAsync(url);
+    Alert.alert('Copied', 'iCal subscription URL copied to clipboard');
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.page }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
@@ -259,11 +282,49 @@ export default function CalendarScreen() {
               </Pressable>
             </View>
 
-            {/* Legend */}
-            <View style={{ flexDirection: 'row', gap: 16 }}>
+            {/* Legend and Export */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <LegendItem label="Available" color={theme.status.ok} theme={theme} />
               <LegendItem label="Booked" color={theme.status.busy} theme={theme} />
               <LegendItem label="Cleaning" color={theme.status.warn} theme={theme} />
+
+              <View style={{ width: 1, height: 20, backgroundColor: theme.line, marginHorizontal: 4 }} />
+
+              <Pressable
+                onPress={handleExportCalendar}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 6,
+                  backgroundColor: pressed ? theme.chip : 'transparent',
+                })}
+              >
+                <Download size={14} color={theme.ink2} strokeWidth={1.7} />
+                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 12, color: theme.ink2 }}>
+                  Export
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleCopyICalUrl}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 6,
+                  backgroundColor: pressed ? theme.chip : 'transparent',
+                })}
+              >
+                <Link size={14} color={theme.ink2} strokeWidth={1.7} />
+                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 12, color: theme.ink2 }}>
+                  iCal URL
+                </Text>
+              </Pressable>
             </View>
           </View>
 

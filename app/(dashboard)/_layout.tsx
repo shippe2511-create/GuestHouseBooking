@@ -13,6 +13,7 @@ import {
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import Sidebar from '../../src/components/Sidebar';
+import OfflineBanner from '../../src/components/OfflineBanner';
 
 export default function DashboardLayout() {
   const { theme } = useTheme();
@@ -21,9 +22,11 @@ export default function DashboardLayout() {
 
   if (isDesktop) {
     return (
-      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: theme.page }}>
-        <Sidebar />
-        <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: theme.page }}>
+        <OfflineBanner />
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <Sidebar />
+          <View style={{ flex: 1 }}>
           <Tabs
             screenOptions={{
               headerShown: false,
@@ -39,14 +42,17 @@ export default function DashboardLayout() {
             <Tabs.Screen name="properties" />
             <Tabs.Screen name="settings" />
           </Tabs>
+          </View>
         </View>
       </View>
     );
   }
 
   return (
-    <Tabs
-      screenOptions={{
+    <View style={{ flex: 1 }}>
+      <OfflineBanner />
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.surface,
@@ -135,7 +141,8 @@ export default function DashboardLayout() {
             <Settings size={size} color={color} strokeWidth={1.7} />
           ),
         }}
-      />
-    </Tabs>
+        />
+      </Tabs>
+    </View>
   );
 }

@@ -58,6 +58,10 @@ export interface Database {
           price: number;
           currency: Currency;
           status: BookingStatus;
+          total_nights: number | null;
+          total_amount: number | null;
+          notes: string | null;
+          source: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -72,8 +76,10 @@ export interface Database {
           amount: number;
           currency: Currency;
           method: PaymentMethod;
-          date: string;
+          status: string;
+          notes: string | null;
           created_at: string;
+          updated_at: string;
         };
         Insert: Omit<Database['public']['Tables']['payments']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['payments']['Insert']>;

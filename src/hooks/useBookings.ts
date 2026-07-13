@@ -22,6 +22,10 @@ interface Booking {
   price: number;
   currency: Currency;
   status: BookingStatus;
+  total_nights: number | null;
+  total_amount: number | null;
+  notes: string | null;
+  source: string | null;
   created_at: string;
   updated_at: string;
   rooms: Room;
