@@ -13,7 +13,7 @@ import { Search, Plus } from 'lucide-react-native';
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
-import AddBookingModal from '../../src/components/AddBookingModal';
+import ModernBookingModal from '../../src/components/ModernBookingModal';
 import { useRooms } from '../../src/hooks/useRooms';
 import { useBookings } from '../../src/hooks/useBookings';
 import type { RoomStatus } from '../../src/types/database';
@@ -219,7 +219,7 @@ export default function RoomInventoryScreen() {
         )}
       </ScrollView>
 
-      <AddBookingModal
+      <ModernBookingModal
         visible={showBookingModal}
         onClose={() => {
           setShowBookingModal(false);
