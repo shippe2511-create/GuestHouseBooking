@@ -264,8 +264,8 @@ export default function AddBookingModal({
               </View>
 
               {/* Check-in / Check-out - 2 Column */}
-              <View style={{ flexDirection: 'row', gap: 16 }}>
-                <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', gap: 16, zIndex: 20 }}>
+                <View style={{ flex: 1, zIndex: 21 }}>
                   <FormField label="Check-in" theme={theme}>
                     <DateInput
                       value={checkIn}
@@ -274,7 +274,7 @@ export default function AddBookingModal({
                     />
                   </FormField>
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, zIndex: 20 }}>
                   <FormField label="Check-out" theme={theme}>
                     <DateInput
                       value={checkOut}
@@ -287,8 +287,8 @@ export default function AddBookingModal({
               </View>
 
               {/* Room / Guests / Price - 3 Column */}
-              <View style={{ flexDirection: 'row', gap: 16 }}>
-                <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
+                <View style={{ flex: 1, zIndex: 13 }}>
                   <FormField label="Room" theme={theme}>
                     <Pressable
                       onPress={() => setShowRoomPicker(!showRoomPicker)}
@@ -338,7 +338,7 @@ export default function AddBookingModal({
                     )}
                   </FormField>
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, zIndex: 12 }}>
                   <FormField label="Guests" theme={theme}>
                     <Pressable
                       onPress={() => setShowGuestsPicker(!showGuestsPicker)}

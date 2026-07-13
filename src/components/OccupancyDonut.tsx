@@ -1,5 +1,5 @@
-import { View, Text, useColorScheme } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import { View, Text, useColorScheme, Platform } from 'react-native';
+import Svg, { Circle, G } from 'react-native-svg';
 import { colors } from '../constants/theme';
 
 interface OccupancyDonutProps {
@@ -34,19 +34,23 @@ export default function OccupancyDonut({
           fill="none"
         />
         {/* Progress */}
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={colors.light.primary}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
+        <G
           rotation={-90}
-          origin={`${size / 2}, ${size / 2}`}
-        />
+          origin={Platform.OS === 'web' ? undefined : `${size / 2}, ${size / 2}`}
+          transform={Platform.OS === 'web' ? `rotate(-90 ${size / 2} ${size / 2})` : undefined}
+        >
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={colors.light.primary}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+          />
+        </G>
       </Svg>
       <View
         style={{
