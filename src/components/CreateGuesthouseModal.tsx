@@ -280,19 +280,20 @@ export default function CreateGuesthouseModal({
                   <View
                     style={{
                       position: 'absolute',
-                      top: '100%',
+                      bottom: '100%',
                       left: 0,
                       right: 0,
                       backgroundColor: theme.surface,
                       borderWidth: 1,
                       borderColor: theme.inputLine,
                       borderRadius: 10,
-                      marginTop: 4,
+                      marginBottom: 4,
+                      zIndex: 1000,
                       shadowColor: '#0f172a',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.1,
+                      shadowOffset: { width: 0, height: -4 },
+                      shadowOpacity: 0.15,
                       shadowRadius: 12,
-                      elevation: 5,
+                      elevation: 10,
                     }}
                   >
                     {(['MVR', 'USD'] as Currency[]).map((c, index) => (

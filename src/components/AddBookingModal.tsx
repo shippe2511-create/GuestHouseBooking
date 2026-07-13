@@ -70,7 +70,16 @@ export default function AddBookingModal({
 
   const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [showGuestsPicker, setShowGuestsPicker] = useState(false);
+  const [showCheckInPicker, setShowCheckInPicker] = useState(false);
+  const [showCheckOutPicker, setShowCheckOutPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const closeAllPickers = () => {
+    setShowRoomPicker(false);
+    setShowGuestsPicker(false);
+    setShowCheckInPicker(false);
+    setShowCheckOutPicker(false);
+  };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -175,7 +184,7 @@ export default function AddBookingModal({
           }}
           onPress={(e) => e.stopPropagation()}
         >
-          <ScrollView bounces={false}>
+          <ScrollView bounces={false} style={{ overflow: 'visible' }} contentContainerStyle={{ overflow: 'visible' }}>
             {/* Header */}
             <View
               style={{
@@ -221,7 +230,7 @@ export default function AddBookingModal({
             </View>
 
             {/* Form */}
-            <View style={{ padding: 24, gap: 20 }}>
+            <View style={{ padding: 24, gap: 20, overflow: 'visible' }}>
               {/* Guest Name - Full Width */}
               <FormField label="Guest name" theme={theme}>
                 <TextInput
@@ -271,6 +280,12 @@ export default function AddBookingModal({
                       value={checkIn}
                       onChange={setCheckIn}
                       theme={theme}
+                      isOpen={showCheckInPicker}
+                      onToggle={() => {
+                        closeAllPickers();
+                        setShowCheckInPicker(!showCheckInPicker);
+                      }}
+                      onClose={() => setShowCheckInPicker(false)}
                     />
                   </FormField>
                 </View>
@@ -281,17 +296,26 @@ export default function AddBookingModal({
                       onChange={setCheckOut}
                       minDate={checkIn}
                       theme={theme}
+                      isOpen={showCheckOutPicker}
+                      onToggle={() => {
+                        closeAllPickers();
+                        setShowCheckOutPicker(!showCheckOutPicker);
+                      }}
+                      onClose={() => setShowCheckOutPicker(false)}
                     />
                   </FormField>
                 </View>
               </View>
 
               {/* Room / Guests / Price - 3 Column */}
-              <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
-                <View style={{ flex: 1, zIndex: 13 }}>
+              <View style={{ flexDirection: 'row', gap: 16, zIndex: 30 }}>
+                <View style={{ flex: 1, zIndex: 33 }}>
                   <FormField label="Room" theme={theme}>
                     <Pressable
-                      onPress={() => setShowRoomPicker(!showRoomPicker)}
+                      onPress={() => {
+                        closeAllPickers();
+                        setShowRoomPicker(!showRoomPicker);
+                      }}
                       style={[
                         inputStyle(theme),
                         {
@@ -338,10 +362,13 @@ export default function AddBookingModal({
                     )}
                   </FormField>
                 </View>
-                <View style={{ flex: 1, zIndex: 12 }}>
+                <View style={{ flex: 1, zIndex: 32 }}>
                   <FormField label="Guests" theme={theme}>
                     <Pressable
-                      onPress={() => setShowGuestsPicker(!showGuestsPicker)}
+                      onPress={() => {
+                        closeAllPickers();
+                        setShowGuestsPicker(!showGuestsPicker);
+                      }}
                       style={[
                         inputStyle(theme),
                         {
@@ -498,7 +525,7 @@ interface FormFieldProps {
 
 function FormField({ label, theme, children }: FormFieldProps) {
   return (
-    <View style={{ position: 'relative', zIndex: 1 }}>
+    <View style={{ position: 'relative', zIndex: 1, overflow: 'visible' }}>
       <Text
         style={{
           fontFamily: 'Inter_600SemiBold',
@@ -533,10 +560,14 @@ interface DateInputProps {
   onChange: (date: Date) => void;
   minDate?: Date;
   theme: typeof colors.light;
+  isOpen?: boolean;
+  onToggle?: () => void;
+  onClose?: () => void;
 }
 
-function DateInput({ value, onChange, theme }: DateInputProps) {
-  const [showPicker, setShowPicker] = useState(false);
+function DateInput({ value, onChange, theme, isOpen, onToggle, onClose }: DateInputProps) {
+  const showPicker = isOpen ?? false;
+  const [viewMonth, setViewMonth] = useState(new Date(value));
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -546,16 +577,62 @@ function DateInput({ value, onChange, theme }: DateInputProps) {
     });
   };
 
-  const adjustDate = (days: number) => {
-    const newDate = new Date(value);
-    newDate.setDate(newDate.getDate() + days);
-    onChange(newDate);
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startingDay; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+    return days;
   };
+
+  const prevMonth = () => {
+    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1));
+  };
+
+  const selectDay = (day: number) => {
+    const newDate = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), day);
+    onChange(newDate);
+    onClose?.();
+  };
+
+  const isSelected = (day: number) => {
+    return (
+      value.getDate() === day &&
+      value.getMonth() === viewMonth.getMonth() &&
+      value.getFullYear() === viewMonth.getFullYear()
+    );
+  };
+
+  const isToday = (day: number) => {
+    const today = new Date();
+    return (
+      today.getDate() === day &&
+      today.getMonth() === viewMonth.getMonth() &&
+      today.getFullYear() === viewMonth.getFullYear()
+    );
+  };
+
+  const days = getDaysInMonth(viewMonth);
+  const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   return (
     <View>
       <Pressable
-        onPress={() => setShowPicker(!showPicker)}
+        onPress={onToggle}
         style={[
           inputStyle(theme),
           {
@@ -580,60 +657,96 @@ function DateInput({ value, onChange, theme }: DateInputProps) {
         <View
           style={{
             position: 'absolute',
-            top: '100%',
+            bottom: '100%',
             left: 0,
-            right: 0,
+            minWidth: 280,
             backgroundColor: theme.surface,
             borderWidth: 1,
             borderColor: theme.inputLine,
             borderRadius: 10,
-            marginTop: 4,
-            zIndex: 100,
+            marginBottom: 4,
+            zIndex: 1000,
             shadowColor: '#0f172a',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.15,
             shadowRadius: 12,
-            elevation: 5,
+            elevation: 10,
             padding: 12,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          {/* Month Navigation */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <Pressable
-              onPress={() => adjustDate(-1)}
+              onPress={prevMonth}
               style={({ pressed }) => ({
-                padding: 8,
+                padding: 6,
                 borderRadius: 6,
                 backgroundColor: pressed ? theme.chip : 'transparent',
               })}
             >
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: theme.ink }}>−</Text>
+              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 18, color: theme.ink }}>‹</Text>
             </Pressable>
             <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: theme.ink }}>
-              {formatDate(value)}
+              {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </Text>
             <Pressable
-              onPress={() => adjustDate(1)}
+              onPress={nextMonth}
               style={({ pressed }) => ({
-                padding: 8,
+                padding: 6,
                 borderRadius: 6,
                 backgroundColor: pressed ? theme.chip : 'transparent',
               })}
             >
-              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 16, color: theme.ink }}>+</Text>
+              <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 18, color: theme.ink }}>›</Text>
             </Pressable>
           </View>
-          <Pressable
-            onPress={() => setShowPicker(false)}
-            style={({ pressed }) => ({
-              backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
-              borderRadius: 8,
-              paddingVertical: 10,
-              marginTop: 12,
-              alignItems: 'center',
-            })}
-          >
-            <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#fff' }}>Done</Text>
-          </Pressable>
+
+          {/* Week Days Header */}
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            {weekDays.map((day) => (
+              <View key={day} style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: theme.muted }}>
+                  {day}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Days Grid */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            {days.map((day, index) => (
+              <View key={index} style={{ width: '14.28%', aspectRatio: 1, padding: 2 }}>
+                {day !== null && (
+                  <Pressable
+                    onPress={() => selectDay(day)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderRadius: 6,
+                      backgroundColor: isSelected(day)
+                        ? colors.light.primary
+                        : pressed
+                        ? theme.chip
+                        : 'transparent',
+                      borderWidth: isToday(day) && !isSelected(day) ? 1 : 0,
+                      borderColor: colors.light.primary,
+                    })}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: isSelected(day) ? 'Inter_600SemiBold' : 'Inter_400Regular',
+                        fontSize: 13,
+                        color: isSelected(day) ? '#fff' : theme.ink,
+                      }}
+                    >
+                      {day}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -651,21 +764,21 @@ function DropdownPicker({ theme, children }: DropdownPickerProps) {
     <View
       style={{
         position: 'absolute',
-        top: '100%',
+        bottom: '100%',
         left: 0,
         right: 0,
         backgroundColor: theme.surface,
         borderWidth: 1,
         borderColor: theme.inputLine,
         borderRadius: 10,
-        marginTop: 4,
-        zIndex: 100,
+        marginBottom: 4,
+        zIndex: 1000,
         shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
         shadowRadius: 12,
-        elevation: 5,
-        maxHeight: 200,
+        elevation: 10,
+        maxHeight: 220,
       }}
     >
       <ScrollView bounces={false} nestedScrollEnabled>
