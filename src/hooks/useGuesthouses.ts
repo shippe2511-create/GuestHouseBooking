@@ -15,6 +15,7 @@ export function useCreateGuesthouse() {
     island: string;
     totalRooms: number;
     currency: Currency;
+    images?: string[];
   }): Promise<Guesthouse | null> => {
     if (!user) {
       setError(new Error('Must be logged in to create a guesthouse'));
@@ -33,7 +34,9 @@ export function useCreateGuesthouse() {
           total_rooms: data.totalRooms,
           currency: data.currency,
           status: 'trial',
-          settings: {},
+          settings: {
+            images: data.images || [],
+          },
         })
         .select()
         .single();

@@ -6,6 +6,7 @@ import {
   Pressable,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Download, Send } from 'lucide-react-native';
@@ -13,12 +14,14 @@ import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
 import { usePayments } from '../../src/hooks/usePayments';
+import { sendReceiptEmail } from '../../src/lib/emails';
 import Logo from '../../src/components/Logo';
-import type { PaymentMethod, Currency } from '../../src/types/database';
+import type { PaymentMethod, Currency, Tables } from '../../src/types/database';
 
 interface DisplayPayment {
   id: string;
   guestName: string;
+  guestEmail: string;
   roomNumber: string;
   date: Date;
   method: PaymentMethod;
@@ -27,17 +30,18 @@ interface DisplayPayment {
   nights: number;
   pricePerNight: number;
   greenTax: number;
+  bookingId: string;
 }
 
 const mockPayments: DisplayPayment[] = [
-  { id: '1', guestName: 'Ahmed Hassan', roomNumber: '101', date: new Date(2026, 6, 13), method: 'card', amount: 13108, currency: 'MVR', nights: 5, pricePerNight: 2500, greenTax: 608 },
-  { id: '2', guestName: 'Sarah Chen', roomNumber: '102', date: new Date(2026, 6, 12), method: 'bank_transfer', amount: 15730, currency: 'MVR', nights: 6, pricePerNight: 2500, greenTax: 730 },
-  { id: '3', guestName: 'John Smith', roomNumber: '104', date: new Date(2026, 6, 11), method: 'cash', amount: 17387, currency: 'MVR', nights: 6, pricePerNight: 2800, greenTax: 587 },
-  { id: '4', guestName: 'Maria Garcia', roomNumber: '201', date: new Date(2026, 6, 10), method: 'card', amount: 16486, currency: 'MVR', nights: 5, pricePerNight: 3200, greenTax: 486 },
-  { id: '5', guestName: 'James Wilson', roomNumber: '202', date: new Date(2026, 6, 9), method: 'card', amount: 23192, currency: 'MVR', nights: 7, pricePerNight: 3200, greenTax: 792 },
-  { id: '6', guestName: 'Lisa Anderson', roomNumber: '204', date: new Date(2026, 6, 8), method: 'bank_transfer', amount: 14487, currency: 'MVR', nights: 4, pricePerNight: 3500, greenTax: 487 },
-  { id: '7', guestName: 'David Brown', roomNumber: '301', date: new Date(2026, 6, 7), method: 'cash', amount: 20608, currency: 'MVR', nights: 5, pricePerNight: 4000, greenTax: 608 },
-  { id: '8', guestName: 'Emma Davis', roomNumber: '303', date: new Date(2026, 6, 6), method: 'card', amount: 32354, currency: 'MVR', nights: 7, pricePerNight: 4500, greenTax: 854 },
+  { id: '1', guestName: 'Ahmed Hassan', guestEmail: 'ahmed@email.com', roomNumber: '101', date: new Date(2026, 6, 13), method: 'card', amount: 13108, currency: 'MVR', nights: 5, pricePerNight: 2500, greenTax: 608, bookingId: 'b1' },
+  { id: '2', guestName: 'Sarah Chen', guestEmail: 'sarah@email.com', roomNumber: '102', date: new Date(2026, 6, 12), method: 'bank_transfer', amount: 15730, currency: 'MVR', nights: 6, pricePerNight: 2500, greenTax: 730, bookingId: 'b2' },
+  { id: '3', guestName: 'John Smith', guestEmail: 'john@email.com', roomNumber: '104', date: new Date(2026, 6, 11), method: 'cash', amount: 17387, currency: 'MVR', nights: 6, pricePerNight: 2800, greenTax: 587, bookingId: 'b3' },
+  { id: '4', guestName: 'Maria Garcia', guestEmail: 'maria@email.com', roomNumber: '201', date: new Date(2026, 6, 10), method: 'card', amount: 16486, currency: 'MVR', nights: 5, pricePerNight: 3200, greenTax: 486, bookingId: 'b4' },
+  { id: '5', guestName: 'James Wilson', guestEmail: 'james@email.com', roomNumber: '202', date: new Date(2026, 6, 9), method: 'card', amount: 23192, currency: 'MVR', nights: 7, pricePerNight: 3200, greenTax: 792, bookingId: 'b5' },
+  { id: '6', guestName: 'Lisa Anderson', guestEmail: 'lisa@email.com', roomNumber: '204', date: new Date(2026, 6, 8), method: 'bank_transfer', amount: 14487, currency: 'MVR', nights: 4, pricePerNight: 3500, greenTax: 487, bookingId: 'b6' },
+  { id: '7', guestName: 'David Brown', guestEmail: 'david@email.com', roomNumber: '301', date: new Date(2026, 6, 7), method: 'cash', amount: 20608, currency: 'MVR', nights: 5, pricePerNight: 4000, greenTax: 608, bookingId: 'b7' },
+  { id: '8', guestName: 'Emma Davis', guestEmail: 'emma@email.com', roomNumber: '303', date: new Date(2026, 6, 6), method: 'card', amount: 32354, currency: 'MVR', nights: 7, pricePerNight: 4500, greenTax: 854, bookingId: 'b8' },
 ];
 
 export default function PaymentsScreen() {
@@ -57,14 +61,16 @@ export default function PaymentsScreen() {
         return {
           id: p.id,
           guestName: p.bookings?.guest_name || 'Guest',
+          guestEmail: p.bookings?.guest_email || '',
           roomNumber: p.bookings?.rooms?.number || '---',
-          date: new Date(p.date),
+          date: new Date(p.created_at),
           method: p.method,
           amount: Number(p.amount),
           currency: p.currency,
           nights,
           pricePerNight,
           greenTax,
+          bookingId: p.booking_id,
         };
       });
     }
@@ -99,12 +105,86 @@ export default function PaymentsScreen() {
     }
   };
 
+  const [sendingReceipt, setSendingReceipt] = useState(false);
+
   const handleExportCSV = () => {
-    console.log('Export CSV');
+    const csvRows = [
+      ['Guest', 'Room', 'Date', 'Method', 'Amount', 'Currency'].join(','),
+      ...paymentsData.map(p => [
+        `"${p.guestName}"`,
+        p.roomNumber,
+        formatDate(p.date),
+        p.method,
+        p.amount,
+        p.currency
+      ].join(','))
+    ];
+    const csv = csvRows.join('\n');
+    console.log('CSV Export:', csv);
+    Alert.alert('Export', 'CSV data copied to console. For full export, implement file sharing.');
   };
 
-  const handleSendReceipt = () => {
-    console.log('Send receipt to', selectedPayment?.guestName);
+  const handleSendReceipt = async () => {
+    if (!selectedPayment || !currentGuesthouse) return;
+
+    if (!selectedPayment.guestEmail) {
+      Alert.alert('No Email', 'This guest does not have an email address on file.');
+      return;
+    }
+
+    setSendingReceipt(true);
+    try {
+      const booking: Tables<'bookings'> = {
+        id: selectedPayment.bookingId,
+        guesthouse_id: currentGuesthouse.id,
+        room_id: '',
+        guest_name: selectedPayment.guestName,
+        guest_email: selectedPayment.guestEmail,
+        guest_phone: '',
+        check_in: '',
+        check_out: '',
+        guests: 1,
+        price: selectedPayment.amount,
+        currency: selectedPayment.currency,
+        status: 'confirmed',
+        total_nights: selectedPayment.nights,
+        total_amount: selectedPayment.amount,
+        notes: null,
+        source: null,
+        created_at: selectedPayment.date.toISOString(),
+        updated_at: selectedPayment.date.toISOString(),
+      };
+
+      const payment: Tables<'payments'> = {
+        id: selectedPayment.id,
+        guesthouse_id: currentGuesthouse.id,
+        booking_id: selectedPayment.bookingId,
+        amount: selectedPayment.amount,
+        currency: selectedPayment.currency,
+        method: selectedPayment.method,
+        status: 'completed',
+        notes: null,
+        created_at: selectedPayment.date.toISOString(),
+        updated_at: selectedPayment.date.toISOString(),
+      };
+
+      const success = await sendReceiptEmail({
+        booking,
+        payment,
+        guesthouse: currentGuesthouse,
+        roomNumber: selectedPayment.roomNumber,
+      });
+
+      if (success) {
+        Alert.alert('Sent', `Receipt emailed to ${selectedPayment.guestEmail}`);
+      } else {
+        Alert.alert('Failed', 'Could not send receipt. Check email service configuration.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send receipt email.');
+    } finally {
+      setSendingReceipt(false);
+    }
   };
 
   const guesthouseName = currentGuesthouse?.name || 'Hudhu Veli';
@@ -430,6 +510,7 @@ export default function PaymentsScreen() {
               >
                 <Pressable
                   onPress={handleSendReceipt}
+                  disabled={sendingReceipt}
                   style={({ pressed }) => ({
                     backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
                     borderRadius: 10,
@@ -443,9 +524,14 @@ export default function PaymentsScreen() {
                     shadowOpacity: 0.3,
                     shadowRadius: 6,
                     elevation: 3,
+                    opacity: sendingReceipt ? 0.7 : 1,
                   })}
                 >
-                  <Send size={18} color="#ffffff" strokeWidth={1.7} />
+                  {sendingReceipt ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Send size={18} color="#ffffff" strokeWidth={1.7} />
+                  )}
                   <Text
                     style={{
                       fontFamily: 'Inter_600SemiBold',
@@ -453,7 +539,7 @@ export default function PaymentsScreen() {
                       color: '#ffffff',
                     }}
                   >
-                    Send receipt to guest
+                    {sendingReceipt ? 'Sending...' : 'Send receipt to guest'}
                   </Text>
                 </Pressable>
               </View>

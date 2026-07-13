@@ -7,6 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "guestos",
+    "owner": "guestos",
+    "extra": {
+      "eas": {
+        "projectId": "guestos-maldives"
+      }
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.guestos.app"
@@ -26,7 +32,21 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2563eb"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow GuestOS to access your photos for room images.",
+          "cameraPermission": "Allow GuestOS to take photos for room images."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

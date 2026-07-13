@@ -1,5 +1,6 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { registerForPushNotifications, savePushToken } from '../lib/notifications';
 import type { Session, User } from '@supabase/supabase-js';
 import type { Tables } from '../types/database';
 
@@ -56,6 +57,12 @@ export function useAuthState() {
 
       if (error) throw error;
       setProfile(data);
+
+      // Register for push notifications
+      const pushToken = await registerForPushNotifications();
+      if (pushToken) {
+        await savePushToken(userId, pushToken);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {

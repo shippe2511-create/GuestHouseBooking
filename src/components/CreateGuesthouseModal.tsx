@@ -7,11 +7,13 @@ import {
   TextInput,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { X, ChevronDown } from 'lucide-react-native';
 import { colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCreateGuesthouse } from '../hooks/useGuesthouses';
+import ImagePicker from './ImagePicker';
 import type { Currency } from '../types/database';
 
 interface CreateGuesthouseModalProps {
@@ -33,6 +35,7 @@ export default function CreateGuesthouseModal({
   const [totalRooms, setTotalRooms] = useState('6');
   const [currency, setCurrency] = useState<Currency>('MVR');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
 
   const handleCreate = async () => {
     if (!name.trim() || !island.trim()) return;
@@ -42,6 +45,7 @@ export default function CreateGuesthouseModal({
       island: island.trim(),
       totalRooms: parseInt(totalRooms) || 6,
       currency,
+      images,
     });
 
     if (guesthouse) {
@@ -49,6 +53,7 @@ export default function CreateGuesthouseModal({
       setIsland('');
       setTotalRooms('6');
       setCurrency('MVR');
+      setImages([]);
       onSuccess(guesthouse);
       onClose();
     }
@@ -59,6 +64,7 @@ export default function CreateGuesthouseModal({
     setIsland('');
     setTotalRooms('6');
     setCurrency('MVR');
+    setImages([]);
     onClose();
   };
 
@@ -140,7 +146,7 @@ export default function CreateGuesthouseModal({
           </View>
 
           {/* Form */}
-          <View style={{ padding: 20, gap: 16 }}>
+          <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ padding: 20, gap: 16 }}>
             <View>
               <Text
                 style={{
@@ -325,7 +331,26 @@ export default function CreateGuesthouseModal({
                 )}
               </View>
             </View>
-          </View>
+
+            <View>
+              <Text
+                style={{
+                  fontFamily: 'Inter_600SemiBold',
+                  fontSize: 12.5,
+                  color: theme.ink3,
+                  marginBottom: 8,
+                }}
+              >
+                Property photos
+              </Text>
+              <ImagePicker
+                images={images}
+                onImagesChange={setImages}
+                maxImages={5}
+                folder="guesthouses"
+              />
+            </View>
+          </ScrollView>
 
           {/* Footer */}
           <View

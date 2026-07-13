@@ -9,11 +9,11 @@ interface Payment {
   amount: number;
   currency: Currency;
   method: PaymentMethod;
-  date: string;
   created_at: string;
   bookings?: {
     id: string;
     guest_name: string;
+    guest_email: string;
     rooms?: {
       number: string;
     };
@@ -46,11 +46,12 @@ export function usePayments(guesthouseId?: string) {
           bookings (
             id,
             guest_name,
+            guest_email,
             rooms (number)
           )
         `)
         .eq('guesthouse_id', guesthouseId)
-        .order('date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setPayments((data as Payment[]) || []);
@@ -76,7 +77,7 @@ export function usePayments(guesthouseId?: string) {
         amount: payment.amount,
         currency: payment.currency,
         method: payment.method,
-        date: new Date().toISOString().split('T')[0],
+        status: 'completed',
       });
 
       if (error) throw error;
@@ -133,16 +134,16 @@ export function useRevenueStats(guesthouseId?: string, month?: Date) {
 
       const { data, error } = await supabase
         .from('payments')
-        .select('amount, date')
+        .select('amount, created_at')
         .eq('guesthouse_id', guesthouseId)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString());
 
       if (error) throw error;
 
       const dailyMap = new Map<number, number>();
-      ((data as { amount: number; date: string }[]) || []).forEach((p) => {
-        const day = new Date(p.date).getDate();
+      ((data as { amount: number; created_at: string }[]) || []).forEach((p) => {
+        const day = new Date(p.created_at).getDate();
         dailyMap.set(day, (dailyMap.get(day) || 0) + Number(p.amount));
       });
 

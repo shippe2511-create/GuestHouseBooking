@@ -42,7 +42,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   const token = await Notifications.getExpoPushTokenAsync({
-    projectId: 'your-project-id', // Replace with actual Expo project ID
+    projectId: 'guestos-maldives',
   });
 
   return token.data;
