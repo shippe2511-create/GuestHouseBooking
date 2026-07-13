@@ -151,7 +151,7 @@ export default function LoginScreen() {
               >
                 Password
               </Text>
-              <Pressable>
+              <Pressable onPress={() => router.push('/(auth)/forgot-password')}>
                 <Text
                   style={{
                     fontFamily: 'Inter_500Medium',

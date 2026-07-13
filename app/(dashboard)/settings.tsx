@@ -7,12 +7,15 @@ import {
   Pressable,
   Switch,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronDown } from 'lucide-react-native';
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
+import { useUpdateGuesthouse } from '../../src/hooks/useGuesthouses';
 import type { Currency } from '../../src/types/database';
 
 interface LocalSettings {
@@ -27,7 +30,8 @@ interface LocalSettings {
 
 export default function SettingsScreen() {
   const { theme, settings: themeSettings, updateSettings: updateThemeSettings } = useTheme();
-  const { currentGuesthouse } = useCurrentGuesthouse();
+  const { currentGuesthouse, setCurrentGuesthouse } = useCurrentGuesthouse();
+  const { updateGuesthouse, loading: saving } = useUpdateGuesthouse();
 
   const [localSettings, setLocalSettings] = useState<LocalSettings>({
     propertyName: currentGuesthouse?.name || 'Hudhu Veli',
@@ -59,9 +63,27 @@ export default function SettingsScreen() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // TODO: Save to Supabase
-    setHasChanges(false);
+  const handleSave = async () => {
+    if (!currentGuesthouse) return;
+
+    const success = await updateGuesthouse(currentGuesthouse.id, {
+      name: localSettings.propertyName,
+      island: localSettings.island,
+      currency: localSettings.currency,
+    });
+
+    if (success) {
+      setCurrentGuesthouse({
+        ...currentGuesthouse,
+        name: localSettings.propertyName,
+        island: localSettings.island,
+        currency: localSettings.currency,
+      });
+      setHasChanges(false);
+      Alert.alert('Success', 'Settings saved successfully');
+    } else {
+      Alert.alert('Error', 'Failed to save settings');
+    }
   };
 
   const handleCancel = () => {
@@ -335,7 +357,7 @@ export default function SettingsScreen() {
             </Pressable>
             <Pressable
               onPress={handleSave}
-              disabled={!hasChanges}
+              disabled={!hasChanges || saving}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
                 borderRadius: 10,
@@ -346,9 +368,13 @@ export default function SettingsScreen() {
                 shadowOpacity: hasChanges ? 0.3 : 0,
                 shadowRadius: 6,
                 elevation: hasChanges ? 3 : 0,
-                opacity: hasChanges ? 1 : 0.5,
+                opacity: hasChanges && !saving ? 1 : 0.5,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
               })}
             >
+              {saving && <ActivityIndicator size="small" color="#ffffff" />}
               <Text
                 style={{
                   fontFamily: 'Inter_600SemiBold',
@@ -356,7 +382,7 @@ export default function SettingsScreen() {
                   color: '#ffffff',
                 }}
               >
-                Save changes
+                {saving ? 'Saving...' : 'Save changes'}
               </Text>
             </Pressable>
           </View>

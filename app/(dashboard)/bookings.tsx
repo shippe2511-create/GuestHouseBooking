@@ -13,6 +13,7 @@ import { Search, Plus } from 'lucide-react-native';
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
+import AddBookingModal from '../../src/components/AddBookingModal';
 import { useRooms } from '../../src/hooks/useRooms';
 import { useBookings } from '../../src/hooks/useBookings';
 import type { RoomStatus } from '../../src/types/database';
@@ -37,9 +38,11 @@ export default function RoomInventoryScreen() {
   const guesthouseId = currentGuesthouse?.id || DEMO_GUESTHOUSE_ID;
 
   const { rooms, loading: roomsLoading, updateRoomStatus } = useRooms(guesthouseId);
-  const { bookings, checkOutGuest } = useBookings(guesthouseId);
+  const { bookings, checkOutGuest, createBooking } = useBookings(guesthouseId);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
   const displayRooms: DisplayRoom[] = rooms.map((room) => {
     const activeBooking = bookings.find(
@@ -76,6 +79,25 @@ export default function RoomInventoryScreen() {
   const handleMarkCleaned = async (roomId: string) => {
     await updateRoomStatus(roomId, 'available');
   };
+
+  const handleBookRoom = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setShowBookingModal(true);
+  };
+
+  const handleSaveBooking = async (booking: any) => {
+    await createBooking({
+      ...booking,
+      roomId: selectedRoomId || booking.roomId,
+      currency: currentGuesthouse?.currency || 'MVR',
+    });
+    setShowBookingModal(false);
+    setSelectedRoomId(null);
+  };
+
+  const availableRooms = displayRooms
+    .filter((r) => r.status === 'available')
+    .map((r) => ({ id: r.id, number: r.number, pricePerNight: r.pricePerNight }));
 
   const formatDate = (date: Date | null) => {
     if (!date) return '—';
@@ -182,6 +204,7 @@ export default function RoomInventoryScreen() {
             theme={theme}
             onCheckOut={handleCheckOut}
             onMarkCleaned={handleMarkCleaned}
+            onBook={handleBookRoom}
             formatDate={formatDate}
           />
         ) : (
@@ -190,10 +213,23 @@ export default function RoomInventoryScreen() {
             theme={theme}
             onCheckOut={handleCheckOut}
             onMarkCleaned={handleMarkCleaned}
+            onBook={handleBookRoom}
             formatDate={formatDate}
           />
         )}
       </ScrollView>
+
+      <AddBookingModal
+        visible={showBookingModal}
+        onClose={() => {
+          setShowBookingModal(false);
+          setSelectedRoomId(null);
+        }}
+        onSave={handleSaveBooking}
+        rooms={availableRooms}
+        currency={currentGuesthouse?.currency || 'MVR'}
+        preselectedRoomId={selectedRoomId || undefined}
+      />
     </SafeAreaView>
   );
 }
@@ -203,6 +239,7 @@ interface RoomListProps {
   theme: typeof colors.light;
   onCheckOut: (room: DisplayRoom) => void;
   onMarkCleaned: (roomId: string) => void;
+  onBook: (roomId: string) => void;
   formatDate: (date: Date | null) => string;
 }
 
@@ -211,6 +248,7 @@ function DesktopRoomTable({
   theme,
   onCheckOut,
   onMarkCleaned,
+  onBook,
   formatDate,
 }: RoomListProps) {
   return (
@@ -316,6 +354,7 @@ function DesktopRoomTable({
               theme={theme}
               onCheckOut={() => onCheckOut(room)}
               onMarkCleaned={() => onMarkCleaned(room.id)}
+              onBook={() => onBook(room.id)}
             />
           </View>
         </View>
@@ -343,6 +382,7 @@ function MobileRoomList({
   theme,
   onCheckOut,
   onMarkCleaned,
+  onBook,
 }: RoomListProps) {
   return (
     <View style={{ gap: 12 }}>
@@ -401,6 +441,7 @@ function MobileRoomList({
                 theme={theme}
                 onCheckOut={() => onCheckOut(room)}
                 onMarkCleaned={() => onMarkCleaned(room.id)}
+                onBook={() => onBook(room.id)}
               />
             </View>
           </View>
@@ -492,9 +533,10 @@ interface RoomActionsProps {
   theme: typeof colors.light;
   onCheckOut: () => void;
   onMarkCleaned: () => void;
+  onBook: () => void;
 }
 
-function RoomActions({ room, theme, onCheckOut, onMarkCleaned }: RoomActionsProps) {
+function RoomActions({ room, theme, onCheckOut, onMarkCleaned, onBook }: RoomActionsProps) {
   if (room.status === 'occupied') {
     return (
       <Pressable
@@ -552,6 +594,7 @@ function RoomActions({ room, theme, onCheckOut, onMarkCleaned }: RoomActionsProp
 
   return (
     <Pressable
+      onPress={onBook}
       style={({ pressed }) => ({
         backgroundColor: pressed ? theme.chip : theme.surface,
         borderWidth: 1,
@@ -578,7 +621,7 @@ function RoomActions({ room, theme, onCheckOut, onMarkCleaned }: RoomActionsProp
   );
 }
 
-function MobileRoomAction({ room, theme, onCheckOut, onMarkCleaned }: RoomActionsProps) {
+function MobileRoomAction({ room, theme, onCheckOut, onMarkCleaned, onBook }: RoomActionsProps) {
   if (room.status === 'occupied') {
     return (
       <Pressable
@@ -640,6 +683,7 @@ function MobileRoomAction({ room, theme, onCheckOut, onMarkCleaned }: RoomAction
 
   return (
     <Pressable
+      onPress={onBook}
       style={({ pressed }) => ({
         backgroundColor: pressed ? theme.chip : theme.surface,
         borderWidth: 1,

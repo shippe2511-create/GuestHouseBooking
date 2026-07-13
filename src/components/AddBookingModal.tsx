@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ interface AddBookingModalProps {
   currency: Currency;
   prefilledRoom?: string;
   prefilledDate?: Date;
+  preselectedRoomId?: string;
 }
 
 interface BookingData {
@@ -48,6 +49,7 @@ export default function AddBookingModal({
   currency,
   prefilledRoom,
   prefilledDate,
+  preselectedRoomId,
 }: AddBookingModalProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -56,7 +58,7 @@ export default function AddBookingModal({
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState(prefilledRoom || '');
+  const [selectedRoomId, setSelectedRoomId] = useState(preselectedRoomId || prefilledRoom || '');
   const [checkIn, setCheckIn] = useState(prefilledDate || new Date());
   const [checkOut, setCheckOut] = useState(() => {
     const date = prefilledDate ? new Date(prefilledDate) : new Date();
@@ -71,6 +73,12 @@ export default function AddBookingModal({
   const [saving, setSaving] = useState(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+
+  useEffect(() => {
+    if (preselectedRoomId) {
+      setSelectedRoomId(preselectedRoomId);
+    }
+  }, [preselectedRoomId]);
 
   const nights = useMemo(() => {
     const diff = checkOut.getTime() - checkIn.getTime();

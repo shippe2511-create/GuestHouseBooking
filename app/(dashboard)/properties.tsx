@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Plus, ChevronRight, Check } from 'lucide-react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import { useCurrentGuesthouse, useUserGuesthouses } from '../../src/contexts/GuesthouseContext';
+import CreateGuesthouseModal from '../../src/components/CreateGuesthouseModal';
 import type { Currency, Tables } from '../../src/types/database';
 
 interface Property {
@@ -66,10 +68,11 @@ export default function PropertiesScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  const { guesthouses, loading } = useUserGuesthouses();
+  const { guesthouses, loading, refetch } = useUserGuesthouses();
   const { currentGuesthouse, setCurrentGuesthouse } = useCurrentGuesthouse();
 
   const [activePropertyId, setActivePropertyId] = useState<string | null>(currentGuesthouse?.id || null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const properties: Property[] = useMemo(() => {
     if (guesthouses.length > 0) {
@@ -190,6 +193,7 @@ export default function PropertiesScreen() {
 
             {/* Add Property Card */}
             <Pressable
+              onPress={() => setShowCreateModal(true)}
               style={({ pressed }) => ({
                 backgroundColor: pressed ? theme.chip : theme.surface,
                 borderRadius: 14,
@@ -228,6 +232,17 @@ export default function PropertiesScreen() {
           </View>
         )}
       </ScrollView>
+
+      <CreateGuesthouseModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={(guesthouse) => {
+          refetch();
+          setCurrentGuesthouse(guesthouse);
+          setActivePropertyId(guesthouse.id);
+          router.push('/(dashboard)');
+        }}
+      />
     </SafeAreaView>
   );
 }

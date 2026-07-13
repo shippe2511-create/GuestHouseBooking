@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import {
@@ -15,11 +15,13 @@ import {
   Plus,
   LogOut,
 } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useCurrentGuesthouse } from '../contexts/GuesthouseContext';
+import { useCurrentGuesthouse, useUserGuesthouses } from '../contexts/GuesthouseContext';
 import Logo from './Logo';
+import type { Tables } from '../types/database';
 
 interface NavItem {
   name: string;
@@ -56,16 +58,50 @@ export default function Sidebar() {
   const { theme } = useTheme();
   const { signOut, profile } = useAuth();
   const { currentGuesthouse, setCurrentGuesthouse } = useCurrentGuesthouse();
+  const { guesthouses } = useUserGuesthouses();
 
   const [showPropertyPicker, setShowPropertyPicker] = useState(false);
 
-  const activeProperty = currentGuesthouse || mockProperties[0];
+  const properties: Property[] = useMemo(() => {
+    if (guesthouses.length > 0) {
+      return guesthouses.map((g: Tables<'guesthouses'>) => ({
+        id: g.id,
+        name: g.name,
+        island: g.island,
+      }));
+    }
+    return mockProperties;
+  }, [guesthouses]);
+
+  const activeProperty = currentGuesthouse
+    ? { id: currentGuesthouse.id, name: currentGuesthouse.name, island: currentGuesthouse.island }
+    : properties[0];
 
   const isActive = (href: string) => {
     if (href === '/(dashboard)') {
       return pathname === '/' || pathname === '/(dashboard)' || pathname === '/index';
     }
     return pathname.startsWith(href);
+  };
+
+  const handleSelectProperty = (property: Property) => {
+    const fullGuesthouse = guesthouses.find((g: Tables<'guesthouses'>) => g.id === property.id);
+    if (fullGuesthouse) {
+      setCurrentGuesthouse(fullGuesthouse);
+    } else {
+      setCurrentGuesthouse({
+        id: property.id,
+        name: property.name,
+        island: property.island,
+        total_rooms: 12,
+        currency: 'MVR',
+        status: 'active',
+        settings: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as Tables<'guesthouses'>);
+    }
+    setShowPropertyPicker(false);
   };
 
   const handleSignOut = async () => {
@@ -145,13 +181,10 @@ export default function Sidebar() {
               overflow: 'hidden',
             }}
           >
-            {mockProperties.map((property, index) => (
+            {properties.map((property, index) => (
               <Pressable
                 key={property.id}
-                onPress={() => {
-                  setCurrentGuesthouse(property as any);
-                  setShowPropertyPicker(false);
-                }}
+                onPress={() => handleSelectProperty(property)}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -163,12 +196,12 @@ export default function Sidebar() {
                       : pressed
                       ? theme.chip
                       : theme.surface,
-                  borderBottomWidth: index < mockProperties.length - 1 ? 1 : 0,
+                  borderBottomWidth: index < properties.length - 1 ? 1 : 0,
                   borderBottomColor: theme.lineSoft,
                 })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <GradientChip size={28} />
+                  <GradientChip size={28} index={index} />
                   <View>
                     <Text
                       style={{
@@ -202,6 +235,10 @@ export default function Sidebar() {
               </Pressable>
             ))}
             <Pressable
+              onPress={() => {
+                setShowPropertyPicker(false);
+                router.push('/(dashboard)/properties');
+              }}
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -361,16 +398,19 @@ export default function Sidebar() {
   );
 }
 
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+const colorPalette = ['#2563eb', '#0d9488', '#7c3aed', '#dc2626', '#ea580c', '#0891b2'];
 
-function GradientChip({ size }: { size: number }) {
+function GradientChip({ size, index = 0 }: { size: number; index?: number }) {
+  const color = colorPalette[index % colorPalette.length];
+  const accentColor = adjustColor(color, 40);
+
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Defs>
-          <LinearGradient id="sidebarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#2563eb" />
-            <Stop offset="100%" stopColor="#0d9488" />
+          <LinearGradient id={`sidebarGrad-${index}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={color} />
+            <Stop offset="100%" stopColor={accentColor} />
           </LinearGradient>
         </Defs>
         <Rect
@@ -379,9 +419,17 @@ function GradientChip({ size }: { size: number }) {
           width={size}
           height={size}
           rx={size * 0.25}
-          fill="url(#sidebarGrad)"
+          fill={`url(#sidebarGrad-${index})`}
         />
       </Svg>
     </View>
   );
+}
+
+function adjustColor(hex: string, amount: number): string {
+  const num = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0x0000ff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }

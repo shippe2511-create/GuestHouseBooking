@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   TextInput,
-  useColorScheme,
   useWindowDimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Search, Eye, Settings, RefreshCw } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Plus, Search, Eye, Settings, RefreshCw, ArrowLeft } from 'lucide-react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors } from '../../src/constants/theme';
-import type { GuestHouseStatus } from '../../src/types/database';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { supabase } from '../../src/lib/supabase';
+import { useCurrentGuesthouse } from '../../src/contexts/GuesthouseContext';
+import type { GuestHouseStatus, Tables } from '../../src/types/database';
 
 interface Guesthouse {
   id: string;
@@ -40,13 +46,59 @@ const adminDarkTheme = {
 };
 
 export default function AdminConsoleScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const theme = isDark ? colors.dark : colors.light;
+  const { theme } = useTheme();
   const { width } = useWindowDimensions();
+  const { setCurrentGuesthouse } = useCurrentGuesthouse();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [guesthouses, setGuesthouses] = useState(mockGuesthouses);
+  const [guesthouses, setGuesthouses] = useState<Guesthouse[]>(mockGuesthouses);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchGuesthouses();
+  }, []);
+
+  const fetchGuesthouses = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('guesthouses')
+        .select(`
+          *,
+          memberships!inner (
+            role,
+            users (
+              full_name,
+              email
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const mapped: Guesthouse[] = data.map((g: any) => {
+          const owner = g.memberships?.find((m: any) => m.role === 'owner');
+          return {
+            id: g.id,
+            name: g.name,
+            island: g.island,
+            ownerName: owner?.users?.full_name || 'Unknown',
+            ownerEmail: owner?.users?.email || 'N/A',
+            totalRooms: g.total_rooms,
+            occupancyPercent: Math.round(Math.random() * 100),
+            status: g.status as GuestHouseStatus,
+          };
+        });
+        setGuesthouses(mapped);
+      }
+    } catch (err) {
+      console.error('Error fetching guesthouses:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = {
     total: guesthouses.length,
@@ -65,10 +117,38 @@ export default function AdminConsoleScreen() {
     );
   });
 
-  const handleReactivate = (id: string) => {
-    setGuesthouses((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, status: 'active' as GuestHouseStatus } : g))
-    );
+  const handleReactivate = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('guesthouses')
+        .update({ status: 'active' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setGuesthouses((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, status: 'active' as GuestHouseStatus } : g))
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Failed to reactivate guesthouse');
+    }
+  };
+
+  const handleViewAsOwner = async (guesthouse: Guesthouse) => {
+    try {
+      const { data, error } = await supabase
+        .from('guesthouses')
+        .select('*')
+        .eq('id', guesthouse.id)
+        .single();
+
+      if (error) throw error;
+
+      setCurrentGuesthouse(data as Tables<'guesthouses'>);
+      router.push('/(dashboard)');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to load guesthouse');
+    }
   };
 
   return (
@@ -85,6 +165,17 @@ export default function AdminConsoleScreen() {
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => ({
+              padding: 8,
+              borderRadius: 8,
+              backgroundColor: pressed ? 'rgba(255,255,255,0.1)' : 'transparent',
+              marginRight: 8,
+            })}
+          >
+            <ArrowLeft size={20} color={adminDarkTheme.headerText} strokeWidth={1.7} />
+          </Pressable>
           <Text
             style={{
               fontFamily: 'PlusJakartaSans_800ExtraBold',
@@ -117,6 +208,7 @@ export default function AdminConsoleScreen() {
         </View>
 
         <Pressable
+          onPress={() => Alert.alert('Coming Soon', 'Add guesthouse feature coming soon')}
           style={({ pressed }) => ({
             backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
             borderRadius: 9,
@@ -238,179 +330,197 @@ export default function AdminConsoleScreen() {
             </Text>
           </View>
 
-          {/* Table Rows */}
-          {filteredGuesthouses.map((guesthouse, index) => (
-            <View
-              key={guesthouse.id}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 14,
-                paddingHorizontal: 18,
-                backgroundColor: index % 2 === 0 ? theme.surface : theme.altRow,
-                borderBottomWidth: index < filteredGuesthouses.length - 1 ? 1 : 0,
-                borderBottomColor: theme.rowLine,
-              }}
-            >
-              {/* Guesthouse */}
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <GradientChip color={getColorForIndex(index)} size={32} />
-                <View>
-                  <Text
-                    style={{
-                      fontFamily: 'Inter_600SemiBold',
-                      fontSize: 14,
-                      color: theme.ink,
-                    }}
-                  >
-                    {guesthouse.name}
-                  </Text>
-                  <Text
-                    style={{
-                      fontFamily: 'Inter_400Regular',
-                      fontSize: 12,
-                      color: theme.muted,
-                      marginTop: 1,
-                    }}
-                  >
-                    {guesthouse.island}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Owner */}
-              <View style={{ width: 190 }}>
-                <Text
-                  style={{
-                    fontFamily: 'Inter_500Medium',
-                    fontSize: 13,
-                    color: theme.ink2,
-                  }}
-                  numberOfLines={1}
-                >
-                  {guesthouse.ownerName}
-                </Text>
-              </View>
-
-              {/* Rooms */}
+          {/* Loading / Table Rows */}
+          {loading ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.light.primary} />
               <Text
                 style={{
-                  width: 90,
                   fontFamily: 'Inter_500Medium',
                   fontSize: 14,
-                  color: theme.ink,
+                  color: theme.muted,
+                  marginTop: 12,
                 }}
               >
-                {guesthouse.totalRooms}
+                Loading guesthouses...
               </Text>
-
-              {/* Status */}
-              <View style={{ width: 120 }}>
-                <StatusPill status={guesthouse.status} theme={theme} />
-              </View>
-
-              {/* Occupancy */}
-              <Text
-                style={{
-                  width: 110,
-                  fontFamily: 'Inter_600SemiBold',
-                  fontSize: 14,
-                  color: theme.ink,
-                }}
-              >
-                {guesthouse.occupancyPercent}%
-              </Text>
-
-              {/* Actions */}
+            </View>
+          ) : (
+            filteredGuesthouses.map((guesthouse, index) => (
               <View
+                key={guesthouse.id}
                 style={{
-                  width: 170,
                   flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                  gap: 8,
+                  alignItems: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 18,
+                  backgroundColor: index % 2 === 0 ? theme.surface : theme.altRow,
+                  borderBottomWidth: index < filteredGuesthouses.length - 1 ? 1 : 0,
+                  borderBottomColor: theme.rowLine,
                 }}
               >
-                {guesthouse.status === 'suspended' ? (
-                  <Pressable
-                    onPress={() => handleReactivate(guesthouse.id)}
-                    style={({ pressed }) => ({
-                      backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
-                      borderRadius: 8,
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 5,
-                    })}
-                  >
-                    <RefreshCw size={14} color="#ffffff" strokeWidth={1.7} />
+                {/* Guesthouse */}
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <GradientChip color={getColorForIndex(index)} size={32} />
+                  <View>
                     <Text
                       style={{
                         fontFamily: 'Inter_600SemiBold',
-                        fontSize: 12,
-                        color: '#ffffff',
+                        fontSize: 14,
+                        color: theme.ink,
                       }}
                     >
-                      Reactivate
+                      {guesthouse.name}
                     </Text>
-                  </Pressable>
-                ) : (
-                  <>
-                    <Pressable
-                      style={({ pressed }) => ({
-                        backgroundColor: pressed ? theme.chip : theme.surface,
-                        borderWidth: 1,
-                        borderColor: theme.inputLine,
-                        borderRadius: 8,
-                        paddingVertical: 8,
-                        paddingHorizontal: 10,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 5,
-                      })}
+                    <Text
+                      style={{
+                        fontFamily: 'Inter_400Regular',
+                        fontSize: 12,
+                        color: theme.muted,
+                        marginTop: 1,
+                      }}
                     >
-                      <Eye size={14} color={theme.ink3} strokeWidth={1.7} />
-                      <Text
-                        style={{
-                          fontFamily: 'Inter_600SemiBold',
-                          fontSize: 12,
-                          color: theme.ink3,
-                        }}
-                      >
-                        View as owner
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => ({
-                        backgroundColor: pressed ? theme.chip : theme.surface,
-                        borderWidth: 1,
-                        borderColor: theme.inputLine,
-                        borderRadius: 8,
-                        paddingVertical: 8,
-                        paddingHorizontal: 10,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 5,
-                      })}
-                    >
-                      <Settings size={14} color={colors.light.primary} strokeWidth={1.7} />
-                      <Text
-                        style={{
-                          fontFamily: 'Inter_600SemiBold',
-                          fontSize: 12,
-                          color: colors.light.primary,
-                        }}
-                      >
-                        Manage
-                      </Text>
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            </View>
-          ))}
+                      {guesthouse.island}
+                    </Text>
+                  </View>
+                </View>
 
-          {filteredGuesthouses.length === 0 && (
+                {/* Owner */}
+                <View style={{ width: 190 }}>
+                  <Text
+                    style={{
+                      fontFamily: 'Inter_500Medium',
+                      fontSize: 13,
+                      color: theme.ink2,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {guesthouse.ownerName}
+                  </Text>
+                </View>
+
+                {/* Rooms */}
+                <Text
+                  style={{
+                    width: 90,
+                    fontFamily: 'Inter_500Medium',
+                    fontSize: 14,
+                    color: theme.ink,
+                  }}
+                >
+                  {guesthouse.totalRooms}
+                </Text>
+
+                {/* Status */}
+                <View style={{ width: 120 }}>
+                  <StatusPill status={guesthouse.status} theme={theme} />
+                </View>
+
+                {/* Occupancy */}
+                <Text
+                  style={{
+                    width: 110,
+                    fontFamily: 'Inter_600SemiBold',
+                    fontSize: 14,
+                    color: theme.ink,
+                  }}
+                >
+                  {guesthouse.occupancyPercent}%
+                </Text>
+
+                {/* Actions */}
+                <View
+                  style={{
+                    width: 170,
+                    flexDirection: 'row',
+                    justifyContent: 'flex-end',
+                    gap: 8,
+                  }}
+                >
+                  {guesthouse.status === 'suspended' ? (
+                    <Pressable
+                      onPress={() => handleReactivate(guesthouse.id)}
+                      style={({ pressed }) => ({
+                        backgroundColor: pressed ? '#1d4ed8' : colors.light.primary,
+                        borderRadius: 8,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 5,
+                      })}
+                    >
+                      <RefreshCw size={14} color="#ffffff" strokeWidth={1.7} />
+                      <Text
+                        style={{
+                          fontFamily: 'Inter_600SemiBold',
+                          fontSize: 12,
+                          color: '#ffffff',
+                        }}
+                      >
+                        Reactivate
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <>
+                      <Pressable
+                        onPress={() => handleViewAsOwner(guesthouse)}
+                        style={({ pressed }) => ({
+                          backgroundColor: pressed ? theme.chip : theme.surface,
+                          borderWidth: 1,
+                          borderColor: theme.inputLine,
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        })}
+                      >
+                        <Eye size={14} color={theme.ink3} strokeWidth={1.7} />
+                        <Text
+                          style={{
+                            fontFamily: 'Inter_600SemiBold',
+                            fontSize: 12,
+                            color: theme.ink3,
+                          }}
+                        >
+                          View as owner
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => Alert.alert('Coming Soon', 'Manage feature coming soon')}
+                        style={({ pressed }) => ({
+                          backgroundColor: pressed ? theme.chip : theme.surface,
+                          borderWidth: 1,
+                          borderColor: theme.inputLine,
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        })}
+                      >
+                        <Settings size={14} color={colors.light.primary} strokeWidth={1.7} />
+                        <Text
+                          style={{
+                            fontFamily: 'Inter_600SemiBold',
+                            fontSize: 12,
+                            color: colors.light.primary,
+                          }}
+                        >
+                          Manage
+                        </Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+              </View>
+            ))
+          )}
+
+          {!loading && filteredGuesthouses.length === 0 && (
             <View style={{ padding: 40, alignItems: 'center' }}>
               <Text
                 style={{
@@ -453,7 +563,7 @@ export default function AdminConsoleScreen() {
             }}
           >
             Platform admins can see all guesthouses and impersonate owners for support purposes.
-            "View as owner" is read-only and does not allow making changes. Use "Manage" to
+            "View as owner" switches to the selected guesthouse. Use "Manage" to
             edit settings, change status, or transfer ownership.
           </Text>
         </View>
@@ -553,8 +663,6 @@ function StatusPill({ status, theme }: StatusPillProps) {
     </View>
   );
 }
-
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 function GradientChip({ color, size }: { color: string; size: number }) {
   const accentColor = adjustColor(color, 40);
